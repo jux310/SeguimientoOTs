@@ -131,7 +131,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-white shadow">
+      <header className="bg-gray-100 shadow">
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -155,10 +155,10 @@ function App() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto py-6 space-y-8">
+      <main className="flex-1 w-[1440px] mx-auto py-6 space-y-8 px-4">
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
         
-        <div className="px-4 sm:px-6 lg:px-8">
+        <div>
         {activeTab === 'dashboard' && (
           <>
             <Dashboard
@@ -172,7 +172,7 @@ function App() {
         )}
 
         {activeTab === 'inco' && (
-          <section>
+          <section className="bg-gray-100 shadow-sm rounded-lg p-6">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">INCOMET</h2>
           <PlantViews activeView={activeView} onViewChange={setActiveView} />
           {activeView === 'table' && (
@@ -196,7 +196,7 @@ function App() {
         )}
 
         {activeTab === 'anti' && (
-          <section>
+          <section className="bg-gray-100 shadow-sm rounded-lg p-6">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">ANTICORR</h2>
           <PlantViews activeView={activeView} onViewChange={setActiveView} />
           {activeView === 'table' && (
@@ -220,7 +220,7 @@ function App() {
         )}
 
         {activeTab === 'archived' && archivedOrders.length > 0 && (
-          <section className="mt-6">
+          <section className="bg-white shadow-sm rounded-lg p-6 mt-6">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">Despachados</h2>
             <WorkOrderTable
               workOrders={archivedOrders}
