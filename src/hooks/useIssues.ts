@@ -224,14 +224,17 @@ export function useIssues(workOrders: any[]) {
       const { data: currentIssue, error: issueError } = await supabase
         .from('issues')
         .select('*')
-        .eq('id', id)
+        .eq('id', id.trim())
         .single();
 
       if (issueError) throw issueError;
       if (!currentIssue) throw new Error('Issue not found');
 
+      // Create a copy of updates to avoid modifying the original object
+      const issueUpdates = { ...updates };
+
       // If marking as resolved and there's an open delay, set its end date
-      if (updates.status === 'RESOLVED') {
+      if (issueUpdates.status === 'RESOLVED') {
         const { data: currentDelay } = await supabase
           .from('issue_delays')
           .select('*')
@@ -253,7 +256,7 @@ export function useIssues(workOrders: any[]) {
         }
       }
 
-      if (updates.delay !== undefined) {
+      if (issueUpdates.delay !== undefined) {
         const { data: currentIssue } = await supabase
           .from('issues')
           .select(`
@@ -263,11 +266,11 @@ export function useIssues(workOrders: any[]) {
           .eq('id', id)
           .single();
 
-        if (currentIssue && updates.delay && currentIssue.priority !== 'HIGH' && currentIssue.priority !== 'CRITICAL') {
+        if (currentIssue && issueUpdates.delay && currentIssue.priority !== 'HIGH' && currentIssue.priority !== 'CRITICAL') {
           throw new Error('Solo se pueden agregar demoras a problemas de prioridad alta o crítica');
         }
 
-        if (updates.delay) {
+        if (issueUpdates.delay) {
           // Check if a delay already exists
           const { data: existingDelay } = await supabase
             .from('issue_delays')
@@ -280,8 +283,8 @@ export function useIssues(workOrders: any[]) {
             const { error: updateError } = await supabase
               .from('issue_delays')
               .update({
-                start_date: updates.delay.start_date,
-                end_date: updates.delay.end_date,
+                start_date: issueUpdates.delay.start_date,
+                end_date: issueUpdates.delay.end_date,
                 updated_by: user.id
               })
               .eq('id', existingDelay.id);
@@ -293,8 +296,8 @@ export function useIssues(workOrders: any[]) {
               .from('issue_delays')
               .insert({
                 issue_id: id,
-                start_date: updates.delay.start_date,
-                end_date: updates.delay.end_date,
+                start_date: issueUpdates.delay.start_date,
+                end_date: issueUpdates.delay.end_date,
                 created_by: user.id,
                 updated_by: user.id
               });
@@ -311,32 +314,32 @@ export function useIssues(workOrders: any[]) {
           if (deleteError) throw deleteError;
         }
 
-        delete updates.delay;
+        delete issueUpdates.delay;
       }
 
       // If there are notes in the updates, create them as a note entry
-      if (updates.notes?.trim()) {
+      if (issueUpdates.notes?.trim()) {
         const { error: noteError } = await supabase
           .from('issue_notes')
           .insert({
             issue_id: id,
-            content: updates.notes,
+            content: issueUpdates.notes,
             created_by: user.id
           });
 
         if (noteError) throw noteError;
-        delete updates.notes;
+        delete issueUpdates.notes;
       }
 
       // Only update the issue if there are other fields to update
-      if (Object.keys(updates).length === 0) {
+      if (Object.keys(issueUpdates).length === 0) {
         await loadIssues();
         return;
       }
 
       const { data, error } = await supabase
         .from('issues')
-        .update({ ...updates, updated_by: user.id })
+        .update({ ...issueUpdates, updated_by: user.id })
         .eq('id', id)
         .select()
         .single();

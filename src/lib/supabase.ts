@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
-const supabaseUrl = 'https://owrxyoixtuerbskhdeel.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93cnh5b2l4dHVlcmJza2hkZWVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzMTU5NTUsImV4cCI6MjA1Nzg5MTk1NX0.xrgrMCb1_yYd4H5Nui5PhowxBVDUOOq7UpIgrbZlJ5Q';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
@@ -13,7 +13,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
-    persistSession: false,
-    detectSessionInUrl: true
+    persistSession: true,
+    storage: window.localStorage,
+    storageKey: 'supabase.auth.token',
+    detectSessionInUrl: true,
+    flowType: 'pkce'
   }
 });

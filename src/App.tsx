@@ -24,8 +24,18 @@ function App() {
   useEffect(() => {
     async function initSession() {
       try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        setSession(currentSession);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          try {
+            const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
+            setSession(refreshedSession);
+          } catch (refreshError) {
+            console.error('Session refresh failed:', refreshError);
+            setSession(null);
+          }
+        } else {
+          setSession(session);
+        }
       } catch (error) {
         console.error('Session initialization error:', error);
         setSession(null);
@@ -39,7 +49,6 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('Auth state changed:', session ? 'logged in' : 'logged out');
       setSession(session);
     });
 
