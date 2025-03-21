@@ -45,15 +45,6 @@ export function useIssues(workOrders: any[]) {
   const loadIssues = async () => {
     try {
       if (!workOrders || workOrders.length === 0) {
-        console.log('No work orders provided, skipping issues fetch');
-        setIssues([]);
-        setLoading(false);
-        return;
-      }
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.log('No authenticated user found');
         setIssues([]);
         setLoading(false);
         return;
@@ -65,7 +56,6 @@ export function useIssues(workOrders: any[]) {
         .filter(Boolean);
 
       if (workOrderIds.length === 0) {
-        console.log('No valid work order IDs found');
         setIssues([]);
         setLoading(false);
         return;
@@ -80,7 +70,6 @@ export function useIssues(workOrders: any[]) {
       if (error) throw error;
 
       if (!data) {
-        console.log('No issues data returned');
         setIssues([]);
         return;
       }
@@ -98,22 +87,23 @@ export function useIssues(workOrders: any[]) {
       const notesPromise = supabase
           .from('issue_notes_with_users')
           .select()
-          .in('issue_id', data.map(i => i.id))
+          .in('issue_id', data.map(i => i.id || ''))
           .order('created_at', { ascending: true });
 
       const delaysPromise = supabase
           .from('issue_delays')
           .select()
-          .in('issue_id', data.map(i => i.id))
+          .in('issue_id', data.map(i => i.id || ''))
           .order('start_date', { ascending: true });
 
-      const [notesResponse, delaysResponse] = await Promise.all([
-        notesPromise,
-        delaysPromise
-      ]).catch(error => {
-        console.error('Error in parallel requests:', error);
-        return [{ data: [], error }, { data: [], error }];
-      });
+      let notesResponse, delaysResponse;
+      try {
+        [notesResponse, delaysResponse] = await Promise.all([notesPromise, delaysPromise]);
+      } catch (err) {
+        console.error('Error in parallel requests:', err);
+        notesResponse = { data: [], error };
+        delaysResponse = { data: [], error };
+      }
 
       const notes = notesResponse.error ? [] : (notesResponse.data || []);
       if (notesResponse.error) {
@@ -140,9 +130,6 @@ export function useIssues(workOrders: any[]) {
       setIssues(issuesWithNotes);
     } catch (error) {
       console.error('Error in loadIssues:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', error.message);
-      }
       setIssues([]); // Fallback to empty state on error
     } finally {
       setLoading(false);

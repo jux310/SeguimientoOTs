@@ -56,7 +56,7 @@ export function useWorkOrders(session: any) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setError('No se encontró un usuario autenticado. Por favor, inicie sesión nuevamente.');
+        await supabase.auth.refreshSession();
         setLoading(false);
         return;
       }
@@ -76,6 +76,7 @@ export function useWorkOrders(session: any) {
       if (error) throw error;
 
       if (!workOrders) {
+        console.error('No work orders data returned');
         setIncoOrders([]);
         setAntiOrders([]);
         setArchivedOrders([]);
@@ -119,8 +120,8 @@ export function useWorkOrders(session: any) {
       setArchivedOrders(formatted.filter(wo => wo.location === 'ARCHIVED'));
     } catch (error) {
       const message = error instanceof Error 
-        ? `Error al cargar las órdenes de trabajo: ${error.message}`
-        : 'Error al cargar las órdenes de trabajo';
+        ? error.message
+        : 'Error loading work orders';
       console.error('Error in loadWorkOrders:', error);
       setError(message);
       setIncoOrders([]);

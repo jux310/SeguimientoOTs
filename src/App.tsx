@@ -133,14 +133,12 @@ function App() {
         <div className="px-4 sm:px-6 lg:px-8">
         {activeTab === 'dashboard' && (
           <>
-            <div className="mb-6">
-              <NewWorkOrderForm onSubmit={createWorkOrder} />
-            </div>
             <Dashboard
               incoOrders={incoOrders}
               antiOrders={antiOrders}
               archivedOrders={archivedOrders}
               changeHistory={changeHistory}
+              createWorkOrder={createWorkOrder}
             />
           </>
         )}

@@ -1,22 +1,99 @@
 import React from 'react';
-import { BarChart3, Clock, Star, AlertTriangle, Book } from 'lucide-react';
+import { BarChart3, Clock, Star, AlertTriangle, Book, Download, Upload, MoreVertical } from 'lucide-react';
 import { WorkOrder, INCO_STAGES, ANTI_STAGES } from '../types';
 import { ChangeHistory } from './ChangeHistory';
+import { NewWorkOrderForm } from './NewWorkOrderForm';
+import { RestoreBackup } from './RestoreBackup';
 import { useIssues } from '../hooks/useIssues';
 import { differenceInDays } from 'date-fns';
+import { supabase } from '../lib/supabase';
+import { useState, useEffect } from 'react';
 
 interface DashboardProps {
   incoOrders: WorkOrder[];
   antiOrders: WorkOrder[];
   archivedOrders: WorkOrder[];
   changeHistory: any[];
+  createWorkOrder: (workOrder: WorkOrder) => Promise<any>;
 }
 
-export function Dashboard({ incoOrders, antiOrders, archivedOrders, changeHistory }: DashboardProps) {
+function BackupMenu() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="p-2 text-gray-600 hover:text-gray-900 rounded-full hover:bg-gray-100"
+      >
+        <MoreVertical className="w-5 h-5" />
+      </button>
+      
+      {isOpen && (
+        <>
+          <div 
+            className="fixed inset-0 z-10" 
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg ring-1 ring-black/5 z-20">
+            <div className="py-1">
+              <button
+                onClick={() => {
+                  downloadBackup();
+                  setIsOpen(false);
+                }}
+                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                <Download className="w-4 h-4" />
+                Descargar Backup
+              </button>
+              <div className="relative">
+                <RestoreBackup onClose={() => setIsOpen(false)} />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+async function downloadBackup() {
+  try {
+    const { data, error } = await supabase.rpc('create_backup');
+
+    if (error) throw error;
+
+    // Create blob and download
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  } catch (error) {
+    console.error('Error creating backup:', error);
+    alert('Error al crear el backup. Por favor, intente nuevamente.');
+  }
+}
+
+export function Dashboard({ incoOrders, antiOrders, archivedOrders, changeHistory, createWorkOrder }: DashboardProps) {
   const { issues } = useIssues([...incoOrders, ...antiOrders]);
   const totalOrders = incoOrders.length + antiOrders.length + archivedOrders.length;
+  const [isAdmin, setIsAdmin] = useState(false);
   const inProgressOrders = incoOrders.length + antiOrders.length;
   const completedOrders = archivedOrders.length;
+
+  useEffect(() => {
+    async function checkAdminStatus() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAdmin(user?.email === 'juancruzcybulski@gmail.com');
+    }
+    checkAdminStatus();
+  }, []);
 
   const priorityOrders = [...incoOrders, ...antiOrders].filter(order => order.priority);
 
@@ -59,6 +136,17 @@ export function Dashboard({ incoOrders, antiOrders, archivedOrders, changeHistor
 
   return (
     <div className="space-y-6">
+      {isAdmin && (
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1">
+              <NewWorkOrderForm onSubmit={createWorkOrder} />
+            </div>
+            <BackupMenu />
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center gap-4">
@@ -130,8 +218,10 @@ export function Dashboard({ incoOrders, antiOrders, archivedOrders, changeHistor
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center gap-3 mb-6">
+            <div className="flex-1 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-orange-500" />
             <h3 className="text-lg font-semibold">Problemas Actuales</h3>
+            </div>
           </div>
           <div className="space-y-8">
             <section>
