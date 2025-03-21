@@ -90,8 +90,24 @@ function IssueTracker({ workOrders, location }: IssueTrackerProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [showNewIssueForm, setShowNewIssueForm] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
   const [groupByOT, setGroupByOT] = useState(true);
   
+  const calculateTotalDelay = (workOrderId: string) => {
+    const workOrderIssues = issues.filter(issue => issue.work_order_id === workOrderId);
+    let totalDays = 0;
+
+    workOrderIssues.forEach(issue => {
+      if (issue.delay) {
+        const startDate = new Date(issue.delay.start_date);
+        const endDate = issue.delay.end_date ? new Date(issue.delay.end_date) : new Date();
+        totalDays += differenceInDays(endDate, startDate) + 1;
+      }
+    });
+
+    return totalDays;
+  };
+
   // Load all issues regardless of status
   useEffect(() => {
     const loadAllIssues = async () => {
@@ -101,15 +117,38 @@ function IssueTracker({ workOrders, location }: IssueTrackerProps) {
           .map(wo => wo.id)
           .filter(Boolean);
 
+        if (workOrderIds.length === 0) {
+          setAllIssues([]);
+          return;
+        }
+
         const { data, error } = await supabase
           .from('issues')
-          .select('*')
+          .select(`
+            *,
+            issue_delays!inner (
+              start_date,
+              end_date
+            )
+          `)
           .in('work_order_id', workOrderIds);
 
         if (error) throw error;
-        setAllIssues(data || []);
+        
+        const issuesWithDelays = data?.map(issue => ({
+          ...issue,
+          delay: issue.issue_delays?.[0] 
+            ? {
+                start_date: issue.issue_delays[0].start_date,
+                end_date: issue.issue_delays[0].end_date
+              }
+            : null
+        })) || [];
+        
+        setAllIssues(issuesWithDelays);
       } catch (err) {
         console.error('Error loading all issues:', err);
+        setAllIssues([]);
       }
     };
 
@@ -291,18 +330,18 @@ function IssueTracker({ workOrders, location }: IssueTrackerProps) {
                     <div className="text-sm text-gray-500 mb-1">
                       {issues.length} {issues.length === 1 ? 'problema' : 'problemas'}
                     </div>
-                    {issues.some(issue => issue.delay) && (
+                    {allIssues.some(i => i.work_order_id === workOrder.id && i.delay) && (
                       <div className="text-sm text-orange-600 font-medium flex items-center gap-1 justify-end">
                         <Clock className="w-4 h-4" />
                         {`${allIssues
                           .filter(i => i.work_order_id === workOrder.id)
                           .reduce((total, issue) => {
-                            if (!issue.delay) return total;
+                            if (!issue.delay?.start_date) return total;
                             const startDate = new Date(issue.delay.start_date);
                             const endDate = issue.delay.end_date 
                               ? new Date(issue.delay.end_date) 
                               : new Date();
-                            return total + (differenceInDays(endDate, startDate) + 1);
+                            return total + Math.max(0, differenceInDays(endDate, startDate) + 1);
                           }, 0)} días de demora`}
                       </div>
                     )}
@@ -381,11 +420,17 @@ function IssueCard({
         <div>
           <h4 className="text-lg font-medium text-gray-900">{issue.title}</h4>
           <p className="text-sm text-gray-500 flex items-center gap-2">
-            {!groupByOT && (
-              <>
-                OT: {workOrder?.ot} - {workOrder?.client}
-              </>
-            )}
+            {!groupByOT ? (
+              <span>
+                OT: {workOrder?.ot} - {workOrder?.client} •{' '}
+                {issues.filter(i => i.work_order_id === workOrder?.id).length} problemas
+                {calculateTotalDelay(workOrder?.id || '') > 0 && (
+                  <span className="text-orange-600">
+                    {' '}• {calculateTotalDelay(workOrder?.id || '')} días de demora
+                  </span>
+                )}
+              </span>
+            ) : null}
             {issue.stage && (
               <>
                 <span className="text-gray-400">•</span>
@@ -398,11 +443,12 @@ function IssueCard({
           {issue.delay && (
             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
               <Clock className="w-4 h-4" />
-              {issue.delay.end_date ? (
-                `${differenceInDays(new Date(issue.delay.end_date), new Date(issue.delay.start_date)) + 1} días`
-              ) : (
-                `${differenceInDays(new Date(), new Date(issue.delay.start_date)) + 1} días`
-              )}
+              {(() => {
+                const startDate = new Date(issue.delay.start_date);
+                const endDate = issue.delay.end_date ? new Date(issue.delay.end_date) : new Date();
+                const days = differenceInDays(endDate, startDate) + 1;
+                return `${days > 0 ? days : 0} días`;
+              })()}
             </span>
           )}
           <PriorityBadge priority={issue.priority} />
@@ -438,5 +484,7 @@ function IssueCard({
     </div>
   );
 }
+
+export { IssueTracker };
 
 export { IssueTracker }

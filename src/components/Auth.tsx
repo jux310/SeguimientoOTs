@@ -1,14 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
 const UNAUTHORIZED_MESSAGE = 'No tienes autorización para acceder al sistema. Contacta al administrador.';
+const EXPIRED_LINK_MESSAGE = 'El enlace de invitación ha expirado. Por favor, solicita uno nuevo.';
 
 export function Auth() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isExpiredLink, setIsExpiredLink] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('error=access_denied') && hash.includes('error_code=otp_expired')) {
+      setIsExpiredLink(true);
+      setError(EXPIRED_LINK_MESSAGE);
+      // Clean up the URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,14 +55,22 @@ export function Auth() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div>
+        <div className="text-center">
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Iniciar sesión
+            {isExpiredLink ? 'Enlace Expirado' : 'Iniciar sesión'}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Ingresa tus credenciales para acceder al sistema
+            {isExpiredLink 
+              ? 'El enlace de invitación ha expirado. Por favor, contacta al administrador para obtener uno nuevo.'
+              : 'Ingresa tus credenciales para acceder al sistema'
+            }
           </p>
         </div>
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 text-sm text-red-600 text-center">
+            {error}
+          </div>
+        )}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
@@ -84,11 +104,6 @@ export function Auth() {
               />
             </div>
           </div>
-
-          {error && (
-            <div className="text-red-600 text-sm text-center">{error}</div>
-          )}
-
           <div>
             <button
               type="submit"
