@@ -4,6 +4,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { es } from 'date-fns/locale';
 import { format } from 'date-fns';
+import { supabase } from '../lib/supabase';
 
 interface DateCellProps {
   date: { date: string; confirmed: boolean } | null;
@@ -69,8 +70,17 @@ function DateDisplay({ date, confirmed, onClick, hasIssues, disabled }: DateDisp
 export function DateCell({ date, onDateChange, workOrderOt, stageName, hasIssues, disabled = false }: DateCellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempDate, setTempDate] = useState<Date | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [wantsToConfirm, setWantsToConfirm] = useState(false);
+
+  useEffect(() => {
+    async function checkAdminStatus() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAdmin(user?.email === 'juancruzcybulski@gmail.com');
+    }
+    checkAdminStatus();
+  }, []);
 
   const parseLocalDate = (dateStr: string) => {
     const [year, month, day] = dateStr.split('-').map(Number);
@@ -80,7 +90,7 @@ export function DateCell({ date, onDateChange, workOrderOt, stageName, hasIssues
   };
 
   const handleClick = () => {
-    if (!disabled) {
+    if (!disabled || isAdmin) {
       setIsOpen(true);
       if (date?.date) {
         setTempDate(parseLocalDate(date.date));
@@ -141,13 +151,13 @@ export function DateCell({ date, onDateChange, workOrderOt, stageName, hasIssues
           confirmed={date.confirmed}
           hasIssues={hasIssues}
           onClick={handleClick}
-          disabled={disabled}
+          disabled={disabled && !isAdmin}
         />
       ) : (
         <div
-          onClick={disabled ? undefined : handleClick}
+          onClick={(disabled && !isAdmin) ? undefined : handleClick}
           className={`flex items-center justify-center p-2 ${
-            disabled ? 'bg-gray-50' : 'hover:bg-gray-50 cursor-pointer'
+            (disabled && !isAdmin) ? 'bg-gray-50' : 'hover:bg-gray-50 cursor-pointer'
           } ${hasIssues ? 'text-orange-500' : 'text-gray-400'}`}
         >
           <Calendar className="w-4 h-4 text-gray-400" />

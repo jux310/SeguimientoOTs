@@ -24,13 +24,27 @@ function App() {
   useEffect(() => {
     async function initSession() {
       try {
+        // Clear any stale session data
+        const currentSession = localStorage.getItem('supabase.auth.token');
+        if (currentSession && !JSON.parse(currentSession).access_token) {
+          localStorage.removeItem('supabase.auth.token');
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
           try {
             const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
-            setSession(refreshedSession);
+            if (refreshedSession) {
+              setSession(refreshedSession);
+            } else {
+              // If refresh fails, clear session and redirect to login
+              await supabase.auth.signOut();
+              setSession(null);
+            }
           } catch (refreshError) {
             console.error('Session refresh failed:', refreshError);
+            // Clear any invalid session data
+            await supabase.auth.signOut();
             setSession(null);
           }
         } else {
@@ -38,6 +52,8 @@ function App() {
         }
       } catch (error) {
         console.error('Session initialization error:', error);
+        // Clear any invalid session data
+        await supabase.auth.signOut();
         setSession(null);
       } finally {
         setSessionLoading(false);
@@ -49,6 +65,9 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.access_token) {
+        localStorage.removeItem('supabase.auth.token');
+      }
       setSession(session);
     });
 
@@ -206,7 +225,7 @@ function App() {
             <WorkOrderTable
               workOrders={archivedOrders}
               stages={[...INCO_STAGES, ...ANTI_STAGES]}
-              onDateChange={() => {}}
+              onDateChange={(ot, stage, date, confirmed) => updateWorkOrderDate(ot, stage, date, confirmed, 'ARCHIVED')}
               isArchived
             />
           </section>

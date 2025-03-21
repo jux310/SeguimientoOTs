@@ -485,6 +485,4 @@ function IssueCard({
   );
 }
 
-export { IssueTracker };
-
 export { IssueTracker }

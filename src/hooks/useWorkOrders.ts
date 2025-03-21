@@ -11,6 +11,16 @@ export function useWorkOrders(session: any) {
   const [error, setError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<any>(null);
 
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    async function checkAdminStatus() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAdmin(user?.email === 'juancruzcybulski@gmail.com');
+    }
+    checkAdminStatus();
+  }, []);
+
   const getLastConfirmedStage = (workOrderDates: any[], stages: Stage[]) => {
     let lastConfirmedStage: Stage | null = null;
     
@@ -200,8 +210,8 @@ export function useWorkOrders(session: any) {
     ot: string,
     stage: string,
     date: string | null,
-    confirmed: boolean = false,
-    location: 'INCO' | 'ANTI'
+    confirmed: boolean = false, 
+    location: 'INCO' | 'ANTI' | 'ARCHIVED'
   ) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -216,11 +226,13 @@ export function useWorkOrders(session: any) {
       if (!workOrder) throw new Error('Work order not found');
 
       // First try to update existing date
-      const { data: existingDate } = await supabase
+      const { data: existingDate, error: existingDateError } = await supabase
         .from('work_order_dates')
         .select('id')
         .eq('work_order_id', workOrder.id)
         .eq('stage', stage);
+
+      if (existingDateError) throw existingDateError;
 
       // Handle case where no date exists yet
       if (!existingDate || existingDate.length === 0) {
@@ -256,27 +268,49 @@ export function useWorkOrders(session: any) {
       if (!allDates) return;
 
       // Only update status and progress based on the last confirmed stage
-      const stages = location === 'INCO' ? INCO_STAGES : ANTI_STAGES;
+      const stages = location === 'INCO' ? INCO_STAGES : 
+                    location === 'ANTI' ? ANTI_STAGES :
+                    [...INCO_STAGES, ...ANTI_STAGES];
+
       const lastConfirmedStage = getLastConfirmedStage(allDates, stages);
       
-      // Only move location if the specific stages are confirmed
-      const shouldMove = (
-        (location === 'INCO' && stage === 'Anticorr' && confirmed) ||
-        (location === 'ANTI' && stage === 'Despacho' && confirmed)
-      );
+      let newLocation = location;
+      
+      // Only process location changes for non-archived orders
+      if (location !== 'ARCHIVED') {
+        // Check if we should move the work order to ANTI
+        const anticorrDate = allDates.find(d => d.stage === 'Anticorr' && d.confirmed);
+        if (location === 'INCO' && anticorrDate) {
+          newLocation = 'ANTI';
+        }
+        
+        // Check if we should move to ARCHIVED
+        if (location === 'ANTI' && stage === 'Despacho' && confirmed) {
+          newLocation = 'ARCHIVED';
+        }
 
-      if (lastConfirmedStage) {
+        // Update status and progress for non-archived orders
+        if (lastConfirmedStage) {
+          await supabase
+            .from('work_orders')
+            .update({
+              status: lastConfirmedStage.name,
+              progress: lastConfirmedStage.progress,
+              location: newLocation,
+              updated_by: user.id
+            })
+            .eq('id', workOrder.id);
+        }
+      } else {
+        // For archived orders, only update the dates without changing status/progress
         await supabase
           .from('work_orders')
           .update({
-            status: lastConfirmedStage.name,
-            progress: lastConfirmedStage.progress,
-            location: shouldMove ? getNextLocation(location) : location,
             updated_by: user.id
           })
           .eq('id', workOrder.id);
       }
-
+      
       await loadWorkOrders();
     } catch (error) {
       console.error('Error updating work order date:', error);
@@ -315,8 +349,4 @@ export function useWorkOrders(session: any) {
     updateWorkOrderDate,
     togglePriority,
   };
-}
-
-function getNextLocation(current: string): string {
-  return current === 'INCO' ? 'ANTI' : 'ARCHIVED';
 }

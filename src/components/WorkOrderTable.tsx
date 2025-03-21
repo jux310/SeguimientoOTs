@@ -6,6 +6,7 @@ import { AlertCircle } from 'lucide-react';
 import { differenceInDays, format } from 'date-fns';
 import { WorkOrderDetails } from './WorkOrderDetails';
 import { useWorkOrders } from '../hooks/useWorkOrders';
+import { supabase } from '../lib/supabase';
 
 function TruncatedDescription({ text }: { text: string }) {
   return (
@@ -37,7 +38,16 @@ export function WorkOrderTable({
 }: WorkOrderTableProps) {
   const { issues } = useIssues(workOrders);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   
+  useEffect(() => {
+    async function checkAdminStatus() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAdmin(user?.email === 'juancruzcybulski@gmail.com');
+    }
+    checkAdminStatus();
+  }, []);
+
   // Sort work orders by progress in descending order
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const sortedWorkOrders = [...workOrders].sort((a, b) => {
@@ -173,8 +183,8 @@ export function WorkOrderTable({
                     stageName={stage.name}
                     hasIssues={getStageIssues(wo.id, stage.name)}
                     workOrderId={wo.id}
-                    onDateChange={(date, confirmed) => onDateChange(wo.ot, stage.name, date, confirmed)}
-                    disabled={isArchived}
+                    onDateChange={(date, confirmed) => onDateChange(wo.ot, stage.name, date, confirmed, isArchived ? 'ARCHIVED' : wo.location)}
+                    disabled={isArchived && !isAdmin}
                   />
                 </td>
               ))}
