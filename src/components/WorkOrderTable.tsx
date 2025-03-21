@@ -97,8 +97,9 @@ export function WorkOrderTable({
   }, []);
 
   return (
-    <div ref={scrollContainerRef} className="overflow-x-auto h-[calc(100vh-16rem)] smooth-scroll">
-      <table className="min-w-full bg-white shadow-sm rounded-lg">
+    <div className="bg-white shadow-sm rounded-lg">
+      <div ref={scrollContainerRef} className="overflow-auto smooth-scroll hide-scrollbar">
+        <table className="min-w-full">
         <thead className="bg-gray-50 sticky top-0 z-10">
           <tr>
             <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600 cursor-pointer">OT</th>
@@ -119,7 +120,7 @@ export function WorkOrderTable({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200 overflow-y-auto">
+        <tbody className="divide-y divide-gray-200 bg-white">
           {sortedWorkOrders.map((wo) => (
             <tr 
               key={wo.ot} 
@@ -191,7 +192,8 @@ export function WorkOrderTable({
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
       {selectedWorkOrder && (
         <WorkOrderDetails
           workOrder={selectedWorkOrder}

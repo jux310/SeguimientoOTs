@@ -130,7 +130,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
@@ -155,7 +155,7 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-6 space-y-8">
+      <main className="flex-1 max-w-7xl mx-auto py-6 space-y-8">
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
         
         <div className="px-4 sm:px-6 lg:px-8">
